@@ -1,0 +1,112 @@
+.container {
+    padding: 2rem;
+    color: var(--foreground);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table th,
+.table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.table th {
+    background: var(--card-bg);
+    font-weight: 600;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--background);
+    padding: 2rem;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 500px;
+    border: 1px solid var(--card-border);
+}
+
+.formGroup {
+    margin-bottom: 1rem;
+}
+
+.label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--secondary);
+}
+
+.input {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 0.5rem;
+    color: var(--foreground);
+}
+
+.checkboxGroup {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    background: var(--input-bg);
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.adminBadge {
+    background: #9333ea;
+    color: white;
+}
+
+.userBadge {
+    background: #3b82f6;
+    color: white;
+}

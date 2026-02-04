@@ -1,0 +1,16 @@
+.input {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.5rem;
+    color: white;
+    /* Default white text for dark mode */
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    border-color: var(--primary);
+}

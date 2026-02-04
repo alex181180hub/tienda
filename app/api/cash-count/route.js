@@ -1,0 +1,62 @@
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+
+// GET: Get expected system total for Today
+export async function GET() {
+    try {
+        // Calculate total valid sales for today
+        const sqlTotal = `
+            SELECT IFNULL(SUM(Total), 0) as TotalEsperado
+            FROM Ventas
+            WHERE DATE(Fecha) = CURDATE()
+            AND (Estado != 'ANULADA' OR Estado IS NULL) 
+        `;
+        const resTotal = await query(sqlTotal);
+
+        // Fetch details
+        const sqlSales = `
+            SELECT Id, DATE_FORMAT(Fecha, '%H:%i') as Hora, Total
+            FROM Ventas
+            WHERE DATE(Fecha) = CURDATE()
+            AND (Estado != 'ANULADA' OR Estado IS NULL)
+            ORDER BY Fecha ASC
+        `;
+        const resSales = await query(sqlSales);
+
+        // Fetch purchases
+        const sqlPurchases = `
+            SELECT Id, DATE_FORMAT(Fecha, '%H:%i') as Hora, Proveedor, Total
+            FROM Compras
+            WHERE DATE(Fecha) = CURDATE()
+            ORDER BY Fecha ASC
+        `;
+        const resPurchases = await query(sqlPurchases);
+
+        return NextResponse.json({
+            expected: resTotal[0].TotalEsperado,
+            sales: resSales,
+            purchases: resPurchases
+        });
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+// POST: Register Cash Count (Cierre)
+export async function POST(request) {
+    try {
+        const body = await request.json();
+        const { systemTotal, realTotal, notes } = body;
+
+        const difference = parseFloat(realTotal) - parseFloat(systemTotal);
+
+        await query(`
+            INSERT INTO CierresCaja (TotalSistema, TotalReal, Diferencia, Notas)
+            VALUES (${systemTotal}, ${realTotal}, ${difference}, '${notes || ''}')
+        `);
+
+        return NextResponse.json({ message: 'Caja Cerrada Correctamente' });
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

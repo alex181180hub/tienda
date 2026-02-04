@@ -1,0 +1,76 @@
+.formContainer {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    padding: 1rem 0;
+}
+
+.mainForm {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 2rem;
+}
+
+.summaryCard {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    height: fit-content;
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--secondary);
+    font-size: 0.9rem;
+}
+
+.input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--foreground);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 1rem;
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    color: var(--secondary);
+    transition: all 0.2s;
+}
+
+.activeTab {
+    background: var(--primary);
+    color: white;
+    font-weight: 500;
+}
