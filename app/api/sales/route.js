@@ -114,6 +114,7 @@ export async function PUT(request) {
 }
 
 // POST: Register Sale
+// POST: Register Sale
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -127,10 +128,10 @@ export async function POST(request) {
         // Added 'Estado' column usage
         const insertVentaSql = `
             INSERT INTO Ventas (Total, Fecha, Estado) 
-            VALUES (${total}, NOW(), 'COMPLETADA');
+            VALUES (?, NOW(), 'COMPLETADA');
         `;
 
-        const ventaResult = await query(insertVentaSql);
+        const ventaResult = await query(insertVentaSql, [total]);
         const ventaId = ventaResult.insertId;
 
         // 2. Insertar Detalles y Actualizar Stock
@@ -139,19 +140,19 @@ export async function POST(request) {
 
             await query(`
                 INSERT INTO DetalleVenta (VentaId, ProductoId, Cantidad, PrecioUnitario, Subtotal)
-                VALUES (${ventaId}, ${item.id}, ${item.quantity}, ${item.price}, ${subtotal})
-            `);
+                VALUES (?, ?, ?, ?, ?)
+            `, [ventaId, item.id, item.quantity, item.price, subtotal]);
 
             await query(`
                 UPDATE Productos 
-                SET StockActual = StockActual - ${item.quantity}
-                WHERE Id = ${item.id}
-            `);
+                SET StockActual = StockActual - ?
+                WHERE Id = ?
+            `, [item.quantity, item.id]);
 
             await query(`
                 INSERT INTO MovimientosStock (ProductoId, TipoMovimiento, Cantidad, Notas)
-                VALUES (${item.id}, 'VENTA', -${item.quantity}, 'Venta #${ventaId}')
-            `);
+                VALUES (?, 'VENTA', ?, ?)
+            `, [item.id, -item.quantity, `Venta #${ventaId}`]);
         }
 
         return NextResponse.json({ message: 'Venta registrada con éxito', ventaId }, { status: 201 });

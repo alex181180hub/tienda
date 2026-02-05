@@ -8,14 +8,17 @@ export async function GET(request) {
         const search = searchParams.get('search');
 
         let sqlQuery = 'SELECT * FROM Productos WHERE Activo = 1';
+        const queryParams = [];
 
         if (search) {
-            sqlQuery += ` AND (Nombre LIKE '%${search}%' OR CodigoBarras LIKE '%${search}%' OR Categoria LIKE '%${search}%')`;
+            sqlQuery += ' AND (Nombre LIKE ? OR CodigoBarras LIKE ? OR Categoria LIKE ?)';
+            const term = `%${search}%`;
+            queryParams.push(term, term, term);
         }
 
         sqlQuery += ' ORDER BY Nombre ASC';
 
-        const result = await query(sqlQuery);
+        const result = await query(sqlQuery, queryParams);
         return NextResponse.json(result);
     } catch (error) {
         console.error('Error fetching products:', error);
