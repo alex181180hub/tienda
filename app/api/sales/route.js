@@ -118,20 +118,24 @@ export async function PUT(request) {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { items, total } = body;
+        const { items, total, customerName, customerNit, paymentMethod } = body;
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 });
         }
 
         // 1. Insertar Venta
-        // Added 'Estado' column usage
         const insertVentaSql = `
-            INSERT INTO Ventas (Total, Fecha, Estado) 
-            VALUES (?, NOW(), 'COMPLETADA');
+            INSERT INTO Ventas (Total, Fecha, Estado, ClienteNombre, ClienteNit, MetodoPago) 
+            VALUES (?, NOW(), 'COMPLETADA', ?, ?, ?);
         `;
 
-        const ventaResult = await query(insertVentaSql, [total]);
+        const ventaResult = await query(insertVentaSql, [
+            total,
+            customerName || 'Sin Nombre',
+            customerNit || '0',
+            paymentMethod || 'EFECTIVO'
+        ]);
         const ventaId = ventaResult.insertId;
 
         // 2. Insertar Detalles y Actualizar Stock

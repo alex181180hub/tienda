@@ -2,16 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ChevronLeft, Trash2 } from 'lucide-react';
+import { Search, ChevronLeft, Trash2, Printer, CreditCard, Banknote } from 'lucide-react';
 import styles from './page.module.css';
-
-
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function VenderPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState([]);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const [customerName, setCustomerName] = useState('');
+    const [customerNit, setCustomerNit] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('EFECTIVO'); // EFECTIVO, QR
 
     // Fetch products from API
     useEffect(() => {
@@ -23,15 +27,12 @@ export default function VenderPage() {
             const res = await fetch('/api/products');
             if (res.ok) {
                 const data = await res.json();
-                // Mapper SQL fields to Frontend fields if necessary (Capitalization usually differs)
-                // SQL Server returns PascalCase usually (Id, Nombre), Frontend uses lowercase usually.
-                // Let's normalize to standard lowercase for frontend usage
                 const normalized = data.map(p => ({
                     id: p.Id,
                     name: p.Nombre,
-                    price: p.PrecioVenta,
+                    price: Number(p.PrecioVenta),
                     category: p.Categoria,
-                    stock: p.StockActual,
+                    stock: Number(p.StockActual),
                     unit: p.Unidad
                 }));
                 setProducts(normalized);
@@ -72,6 +73,10 @@ export default function VenderPage() {
     const handlePay = async () => {
         if (cart.length === 0) return;
 
+        if (!customerName.trim()) {
+            if (!confirm('¿Realizar venta sin nombre de cliente?')) return;
+        }
+
         try {
             const total = calculateTotal();
             const res = await fetch('/api/sales', {
@@ -79,13 +84,20 @@ export default function VenderPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     items: cart,
-                    total: total
+                    total: total,
+                    customerName: customerName || 'Sin Nombre',
+                    customerNit: customerNit || '0',
+                    paymentMethod
                 })
             });
 
             if (res.ok) {
-                alert(`Venta x Bs. ${total.toFixed(2)} Registrada con Éxito!`);
+                const data = await res.json();
+                alert(`Venta registrada con éxito ID: ${data.ventaId}`);
+                printReceipt(data.ventaId, total);
                 setCart([]);
+                setCustomerName('');
+                setCustomerNit('');
                 // Refresh stock
                 fetchProducts();
             } else {
@@ -95,6 +107,59 @@ export default function VenderPage() {
             console.error(e);
             alert('Error de conexión');
         }
+    };
+
+    const printReceipt = (saleId, total) => {
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [80, 200] // Thermal printer width approx
+        });
+
+        doc.setFontSize(10);
+        doc.text("TIENDA POS", 40, 10, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text("Nit: 123456789", 40, 15, { align: 'center' });
+        doc.text(`Fecha: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 5, 25);
+        doc.text(`Venta #: ${saleId}`, 5, 30);
+        doc.text(`Cliente: ${customerName || 'Sin Nombre'}`, 5, 35);
+        doc.text(`NIT/CI: ${customerNit || '0'}`, 5, 40);
+
+        doc.line(5, 42, 75, 42);
+
+        let y = 47;
+        cart.forEach(item => {
+            const lineTotal = (item.price * item.quantity).toFixed(2);
+            // Name
+            doc.text(`${item.name}`, 5, y);
+            y += 4;
+            // Qty x Price = Total
+            doc.text(`${item.quantity} x ${item.price.toFixed(2)}`, 5, y);
+            doc.text(`${lineTotal}`, 75, y, { align: 'right' });
+            y += 5;
+        });
+
+        doc.line(5, y, 75, y);
+        y += 5;
+
+        doc.setFontSize(10);
+        doc.text(`TOTAL: Bs. ${total.toFixed(2)}`, 75, y, { align: 'right' });
+        y += 5;
+        doc.setFontSize(8);
+        doc.text(`Pago: ${paymentMethod}`, 75, y, { align: 'right' });
+
+        // QR Code Placeholder if QR
+        if (paymentMethod === 'QR') {
+            y += 10;
+            doc.text("[ QR PAGO ]", 40, y, { align: 'center' });
+            // In a real app, you'd generate the QR image here
+        }
+
+        y += 10;
+        doc.text("Gracias por su compra", 40, y, { align: 'center' });
+
+        doc.autoPrint();
+        doc.output('dataurlnewwindow');
     };
 
     return (
@@ -178,7 +243,60 @@ export default function VenderPage() {
                     )}
                 </div>
 
-                <div className={styles.totalSection}>
+                {/* Customer & Payment Info */}
+                <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <input
+                            type="text"
+                            placeholder="Nombre Cliente"
+                            className={styles.searchBar}
+                            style={{ width: '100%', fontSize: '0.9rem', padding: '0.5rem' }}
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                        />
+                        <input
+                            type="text"
+                            placeholder="NIT/CI"
+                            className={styles.searchBar}
+                            style={{ width: '100%', fontSize: '0.9rem', padding: '0.5rem' }}
+                            value={customerNit}
+                            onChange={(e) => setCustomerNit(e.target.value)}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <button
+                            onClick={() => setPaymentMethod('EFECTIVO')}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem',
+                                border: `1px solid ${paymentMethod === 'EFECTIVO' ? '#22c55e' : '#334155'}`,
+                                background: paymentMethod === 'EFECTIVO' ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
+                                color: paymentMethod === 'EFECTIVO' ? '#22c55e' : '#94a3b8',
+                                borderRadius: '0.5rem',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <Banknote size={18} /> Efectivo
+                        </button>
+                        <button
+                            onClick={() => setPaymentMethod('QR')}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem',
+                                border: `1px solid ${paymentMethod === 'QR' ? '#3b82f6' : '#334155'}`,
+                                background: paymentMethod === 'QR' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                color: paymentMethod === 'QR' ? '#3b82f6' : '#94a3b8',
+                                borderRadius: '0.5rem',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <CreditCard size={18} /> QR
+                        </button>
+                    </div>
+
                     <div className={styles.totalRow}>
                         <span>Total</span>
                         <span>Bs. {calculateTotal().toFixed(2)}</span>
@@ -188,7 +306,7 @@ export default function VenderPage() {
                         onClick={handlePay}
                         disabled={cart.length === 0}
                     >
-                        COBRAR
+                        COBRAR {paymentMethod === 'QR' ? '(QR)' : ''}
                     </button>
                 </div>
             </div>

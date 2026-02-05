@@ -6,7 +6,10 @@ export async function GET() {
     try {
         // Calculate total valid sales for today
         const sqlTotal = `
-            SELECT IFNULL(SUM(Total), 0) as TotalEsperado
+            SELECT 
+                IFNULL(SUM(CASE WHEN MetodoPago = 'EFECTIVO' THEN Total ELSE 0 END), 0) as TotalEfectivo,
+                IFNULL(SUM(CASE WHEN MetodoPago = 'QR' THEN Total ELSE 0 END), 0) as TotalQR,
+                IFNULL(SUM(Total), 0) as TotalGeneral
             FROM Ventas
             WHERE DATE(Fecha) = CURDATE()
             AND (Estado != 'ANULADA' OR Estado IS NULL) 
@@ -15,7 +18,7 @@ export async function GET() {
 
         // Fetch details
         const sqlSales = `
-            SELECT Id, DATE_FORMAT(Fecha, '%H:%i') as Hora, Total
+            SELECT Id, DATE_FORMAT(Fecha, '%H:%i') as Hora, Total, MetodoPago
             FROM Ventas
             WHERE DATE(Fecha) = CURDATE()
             AND (Estado != 'ANULADA' OR Estado IS NULL)
@@ -33,7 +36,8 @@ export async function GET() {
         const resPurchases = await query(sqlPurchases);
 
         return NextResponse.json({
-            expected: Number(resTotal[0]?.TotalEsperado || 0),
+            expected: Number(resTotal[0]?.TotalEfectivo || 0),
+            expectedQR: Number(resTotal[0]?.TotalQR || 0),
             sales: resSales,
             purchases: resPurchases
         });

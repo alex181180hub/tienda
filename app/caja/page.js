@@ -8,6 +8,9 @@ import autoTable from 'jspdf-autotable';
 
 export default function CajaPage() {
     const [systemTotal, setSystemTotal] = useState(0);
+    const [expectedCash, setExpectedCash] = useState(0);
+    const [expectedQR, setExpectedQR] = useState(0);
+
     const [realTotal, setRealTotal] = useState('');
     const [notes, setNotes] = useState('');
     const [isClosed, setIsClosed] = useState(false);
@@ -19,26 +22,29 @@ export default function CajaPage() {
         fetch('/api/cash-count')
             .then(res => res.json())
             .then(data => {
-                setSystemTotal(data.expected || 0);
+                setSystemTotal(Number(data.expectedTotal || 0)); // Total General (Cash + QR)
+                setExpectedCash(Number(data.expected || 0));     // Only Cash
+                setExpectedQR(Number(data.expectedQR || 0));     // Only QR
                 setSales(data.sales || []);
                 setPurchases(data.purchases || []);
             });
     }, []);
 
-    const difference = (parseFloat(realTotal || 0) - systemTotal);
+    // Difference is calculated against CASH only, as QR is virtual
+    const difference = (parseFloat(realTotal || 0) - expectedCash);
 
     const handleClose = async () => {
-        if (!realTotal) return alert('Ingrese el monto real');
-        if (!confirm('¿Seguro que desea cerrar caja? Esta acción registrará el arqueo.')) return;
+        if (!realTotal && realTotal !== 0) return alert('Ingrese el monto real en Efectivo');
+        if (!confirm('¿Seguro que desea cerrar caja?')) return;
 
         try {
             const res = await fetch('/api/cash-count', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    systemTotal,
+                    systemTotal: expectedCash, // We close against Cash
                     realTotal: parseFloat(realTotal),
-                    notes
+                    notes: `${notes} | (Ventas QR: ${expectedQR})`
                 })
             });
 
@@ -65,36 +71,43 @@ export default function CajaPage() {
         doc.setFontSize(12);
         doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, 40);
 
-        doc.text("Resumen Financiero:", 20, 60);
-        doc.text(`(+) Total Ventas:   Bs. ${systemTotal.toFixed(2)}`, 30, 70);
-        doc.text(`(-) Total Compras:  Bs. ${totalPurchases.toFixed(2)}`, 30, 80);
-        doc.text(`(=) Balance Teórico: Bs. ${(systemTotal - totalPurchases).toFixed(2)}`, 30, 90);
+        doc.text("Resumen de Ventas:", 20, 60);
+        doc.text(`(+) Total General:  Bs. ${systemTotal.toFixed(2)}`, 30, 70);
+        doc.text(`    - Efectivo:     Bs. ${expectedCash.toFixed(2)}`, 30, 80);
+        doc.text(`    - QR/Bancos:    Bs. ${expectedQR.toFixed(2)}`, 30, 90);
 
-        doc.text(`Total Efectivo Real: Bs. ${parseFloat(realTotal).toFixed(2)}`, 120, 70);
+        doc.text("Resumen de Caja (Efectivo):", 20, 110);
+        doc.text(`(+) Entradas Efec.: Bs. ${expectedCash.toFixed(2)}`, 30, 120);
+        doc.text(`(-) Salidas/Gastos: Bs. ${totalPurchases.toFixed(2)}`, 30, 130);
 
-        const diffText = difference > 0 ? `+ Bs. ${difference.toFixed(2)}` : `Bs. ${difference.toFixed(2)}`;
-        doc.setTextColor(difference < 0 ? 220 : 0, difference < 0 ? 20 : 150, difference < 0 ? 60 : 0);
-        doc.text(`Diferencia: ${diffText}`, 120, 80);
-        doc.setTextColor(0, 0, 0); // Reset color
+        const theoreticalCash = expectedCash - totalPurchases;
+        doc.text(`(=) En Caja Teórico:Bs. ${theoreticalCash.toFixed(2)}`, 30, 140);
+
+        doc.text(`Efectivo Real:      Bs. ${parseFloat(realTotal).toFixed(2)}`, 120, 140);
+
+        const diffVal = parseFloat(realTotal) - theoreticalCash;
+        const diffText = diffVal >= 0 ? `+ ${diffVal.toFixed(2)}` : `${diffVal.toFixed(2)}`;
+
+        doc.text(`Diferencia:         Bs. ${diffText}`, 120, 150);
 
         if (notes) {
-            doc.text("Notas:", 20, 110);
-            doc.text(notes, 30, 120);
+            doc.text("Notas:", 20, 165);
+            doc.text(notes, 30, 175);
         }
 
-        doc.text("Detalle de Ventas:", 20, 135);
+        doc.text("Detalle de Ventas:", 20, 190);
 
         autoTable(doc, {
-            startY: 140,
-            head: [['Hora', 'Ticket #', 'Monto']],
-            body: sales.map(s => [s.Hora, `#${s.Id}`, `Bs. ${s.Total.toFixed(2)}`]),
-            foot: [['', 'Total Ventas', `Bs. ${systemTotal.toFixed(2)}`]],
+            startY: 195,
+            head: [['Hora', 'Ticket #', 'Método', 'Monto']],
+            body: sales.map(s => [s.Hora, `#${s.Id}`, s.MetodoPago || 'EFECTIVO', `Bs. ${s.Total.toFixed(2)}`]),
+            foot: [['', '', 'Total Ventas', `Bs. ${systemTotal.toFixed(2)}`]],
             theme: 'striped',
             headStyles: { fillColor: [22, 163, 74] },
             footStyles: { fillColor: [22, 163, 74], fontStyle: 'bold' }
         });
 
-        const finalY = doc.lastAutoTable.finalY || 140;
+        const finalY = doc.lastAutoTable.finalY || 195;
 
         doc.text("Resumen de Compras / Gastos:", 20, finalY + 15);
 
@@ -121,13 +134,23 @@ export default function CajaPage() {
             </div>
 
             <div className={styles.card}>
-                <div className={styles.row}>
-                    <span>Total Sistema (Ventas Hoy)</span>
-                    <span style={{ fontSize: '2rem', fontWeight: 'bold' }}>Bs. {systemTotal.toFixed(2)}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '2rem', textAlign: 'center' }}>
+                    <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#93c5fd' }}>Ventas Totales</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Bs. {systemTotal.toFixed(2)}</div>
+                    </div>
+                    <div style={{ padding: '1rem', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#86efac' }}>Solo Efectivo</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#22c55e' }}>Bs. {expectedCash.toFixed(2)}</div>
+                    </div>
+                    <div style={{ padding: '1rem', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#d8b4fe' }}>QR / Bancos</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#a855f7' }}>Bs. {expectedQR.toFixed(2)}</div>
+                    </div>
                 </div>
 
                 <div className={styles.row}>
-                    <span>Total Real (Contado)</span>
+                    <span>Total Real (Dinero en Caja)</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '1.5rem', color: '#94a3b8' }}>Bs.</span>
                         <input
@@ -142,7 +165,7 @@ export default function CajaPage() {
                 </div>
 
                 <div className={styles.row} style={{ marginTop: '2rem', borderTop: '1px solid #333', paddingTop: '1rem' }}>
-                    <span>Diferencia</span>
+                    <span>Diferencia (Contra Efectivo Esperado)</span>
                     <span className={`${styles.diff} ${difference === 0 ? styles.diff_neutral : difference > 0 ? styles.diff_positive : styles.diff_negative}`}>
                         {difference > 0 ? '+' : ''} Bs. {difference.toFixed(2)}
                     </span>
@@ -185,7 +208,7 @@ export default function CajaPage() {
                             {sales.map(s => (
                                 <tr key={s.Id} style={{ borderBottom: '1px solid #333' }}>
                                     <td style={{ padding: '0.5rem' }}>{s.Hora}</td>
-                                    <td style={{ padding: '0.5rem' }}>T-{s.Id}</td>
+                                    <td style={{ padding: '0.5rem' }}>T-{s.Id} ({s.MetodoPago === 'QR' ? 'QR' : '$'})</td>
                                     <td style={{ padding: '0.5rem', textAlign: 'right' }}>Bs. {s.Total.toFixed(2)}</td>
                                 </tr>
                             ))}
