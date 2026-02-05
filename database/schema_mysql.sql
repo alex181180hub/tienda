@@ -1,6 +1,4 @@
--- Crear la base de datos si no existe
-CREATE DATABASE IF NOT EXISTS TiendaPOS;
-USE TiendaPOS;
+
 
 -- Tabla: Productos
 CREATE TABLE IF NOT EXISTS Productos (

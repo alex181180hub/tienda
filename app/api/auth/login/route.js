@@ -9,8 +9,8 @@ export async function POST(request) {
         const users = await query(`
             SELECT Id, Nombre, Rol, Permisos 
             FROM Usuarios 
-            WHERE Nombre = '${username}' AND Clave = '${password}'
-        `);
+            WHERE Nombre = ? AND Clave = ?
+        `, [username, password]);
 
         if (users.length > 0) {
             const user = users[0];
