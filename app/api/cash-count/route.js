@@ -33,11 +33,12 @@ export async function GET() {
         const resPurchases = await query(sqlPurchases);
 
         return NextResponse.json({
-            expected: resTotal[0].TotalEsperado,
+            expected: Number(resTotal[0]?.TotalEsperado || 0),
             sales: resSales,
             purchases: resPurchases
         });
     } catch (error) {
+        console.error('API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
@@ -52,11 +53,12 @@ export async function POST(request) {
 
         await query(`
             INSERT INTO CierresCaja (TotalSistema, TotalReal, Diferencia, Notas)
-            VALUES (${systemTotal}, ${realTotal}, ${difference}, '${notes || ''}')
-        `);
+            VALUES (?, ?, ?, ?)
+        `, [systemTotal, realTotal, difference, notes || '']);
 
         return NextResponse.json({ message: 'Caja Cerrada Correctamente' });
     } catch (error) {
+        console.error('API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
