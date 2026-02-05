@@ -17,10 +17,14 @@ export default function VenderPage() {
     const [customerNit, setCustomerNit] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('EFECTIVO'); // EFECTIVO, QR
 
+    const [receiptUrl, setReceiptUrl] = useState(null);
+
     // Fetch products from API
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    // ... (fetchProducts, addToCart, removeFromCart, calculateTotal, filteredProducts, handlePay remain same)
 
     const fetchProducts = async () => {
         try {
@@ -93,7 +97,7 @@ export default function VenderPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                alert(`Venta registrada con éxito ID: ${data.ventaId}`);
+                // alert(`Venta registrada con éxito ID: ${data.ventaId}`); // Alert removed effectively by Modal opening
                 printReceipt(data.ventaId, total);
                 setCart([]);
                 setCustomerName('');
@@ -152,14 +156,14 @@ export default function VenderPage() {
         if (paymentMethod === 'QR') {
             y += 10;
             doc.text("[ QR PAGO ]", 40, y, { align: 'center' });
-            // In a real app, you'd generate the QR image here
         }
 
         y += 10;
         doc.text("Gracias por su compra", 40, y, { align: 'center' });
 
-        doc.autoPrint();
-        doc.output('dataurlnewwindow');
+        // Generate Blob URL instead of opening new window
+        const blobUrl = doc.output('bloburl');
+        setReceiptUrl(blobUrl);
     };
 
     return (
@@ -310,6 +314,58 @@ export default function VenderPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Receipt Modal */}
+            {receiptUrl && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(0,0,0,0.8)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <div style={{
+                        background: 'white',
+                        padding: '1rem',
+                        borderRadius: '0.5rem',
+                        width: '90%',
+                        maxWidth: '500px',
+                        height: '90%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ color: 'black', margin: 0 }}>Recibo de Venta</h2>
+                            <button
+                                onClick={() => setReceiptUrl(null)}
+                                style={{
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem'
+                                }}
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                        <iframe
+                            src={receiptUrl}
+                            style={{ flex: 1, border: 'none', width: '100%' }}
+                            title="Recibo"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
